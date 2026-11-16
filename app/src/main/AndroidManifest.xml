@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 收短信（危险权限，运行时/root 授予） -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <!-- 转发到 webhook -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- 用于 WorkManager 在断网后恢复重试 -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <application
+        android:allowBackup="false"
+        android:label="短信转发"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.Light.DarkActionBar">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+            android:permission="android.permission.BROADCAST_SMS" 很关键：
+            它保证只有系统进程能给我们发这条广播，别的 App 无法伪造短信来触发转发。
+            priority 提到 999，尽量第一时间拿到（有序广播）。
+        -->
+        <receiver
+            android:name=".SmsReceiver"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
+            <intent-filter android:priority="999">
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 关闭 WorkManager 默认初始化以外的兼容性声明可不用写 -->
+    </application>
+
+</manifest>
