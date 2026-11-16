@@ -10,6 +10,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,11 +23,22 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Locate sdkmanager & accept licenses
+        id: sdk
+        run: |
+          SDKMGR=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager 2>/dev/null | head -n 1)
+          if [ -z "$SDKMGR" ]; then
+            echo "sdkmanager not found under $ANDROID_HOME/cmdline-tools" >&2
+            find "$ANDROID_HOME" -maxdepth 4 -type f -name sdkmanager >&2 || true
+            exit 1
+          fi
+          echo "Using sdkmanager: $SDKMGR"
+          echo "path=$SDKMGR" >> "$GITHUB_OUTPUT"
+          yes | "$SDKMGR" --licenses > /dev/null 2>&1 || true
 
       - name: Install Android SDK platform 34 & build-tools
-        run: sdkmanager "platforms;android-34" "build-tools;34.0.0"
+        run: |
+          "${{ steps.sdk.outputs.path }}" "platforms;android-34" "build-tools;34.0.0"
 
       - name: Grant execute permission to Gradle wrapper
         run: chmod +x ./gradlew
