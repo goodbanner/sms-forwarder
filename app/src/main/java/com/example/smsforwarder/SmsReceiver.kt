@@ -30,6 +30,14 @@ class SmsReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION) return
 
+        // 替代 Manifest 里的 android:permission="BROADCAST_SMS"：
+        // 真实短信广播由系统用户(0)发出；第三方 App 用 sendBroadcast 伪造时
+        // getSendingUserId() 是调用方自己的用户，通常非 0，这里直接拒绝。
+        if (intent.getSendingUserId() != android.os.UserHandle.USER_SYSTEM) {
+            Log.w(TAG, "忽略非系统来源的短信广播 sendingUserId=${intent.getSendingUserId()}")
+            return
+        }
+
         val parts = Telephony.Sms.Intents.getMessagesFromIntent(intent) ?: return
         if (parts.isEmpty()) return
 

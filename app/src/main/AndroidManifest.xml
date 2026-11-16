@@ -25,14 +25,17 @@
         </activity>
 
         <!--
-            android:permission="android.permission.BROADCAST_SMS" 很关键：
-            它保证只有系统进程能给我们发这条广播，别的 App 无法伪造短信来触发转发。
-            priority 提到 999，尽量第一时间拿到（有序广播）。
+            不要在这里声明 android:permission="android.permission.BROADCAST_SMS"。
+            该权限是 signature 级；在 MIUI/HyperOS 上，真实短信广播虽由 system(uid 1000)
+            发出，但会先经过安全中心 com.miui.securitycenter.remote 的动态接收器
+            (priority 999) 再二次派发，带此权限的静态 receiver 会在投递阶段被系统拦下，
+            导致 onReceive 永远不被调用（现象：测试发送正常，真实短信收不到）。
+            防伪造改为在 SmsReceiver.onReceive 里用 getSendingUserId() 校验。
+            priority 999 尽量第一时间拿到（有序广播）。
         -->
         <receiver
             android:name=".SmsReceiver"
-            android:exported="true"
-            android:permission="android.permission.BROADCAST_SMS">
+            android:exported="true">
             <intent-filter android:priority="999">
                 <action android:name="android.provider.Telephony.SMS_RECEIVED" />
             </intent-filter>
