@@ -30,13 +30,11 @@ class SmsReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION) return
 
-        // 替代 Manifest 里的 android:permission="BROADCAST_SMS"：
-        // 真实短信广播由系统用户(0)发出；第三方 App 用 sendBroadcast 伪造时
-        // getSendingUserId() 是调用方自己的用户，通常非 0，这里直接拒绝。
-        if (intent.getSendingUserId() != android.os.UserHandle.USER_SYSTEM) {
-            Log.w(TAG, "忽略非系统来源的短信广播 sendingUserId=${intent.getSendingUserId()}")
-            return
-        }
+        // Manifest 里不再声明 BROADCAST_SMS 权限：它是 signature 级，
+        // 在 MIUI/HyperOS 上会把经安全中心二次派发的真实短信广播挡在投递阶段，
+        // 导致 onReceive 永不执行（现象：测试发送正常，真实短信收不到）。
+        // 这里不做发送方 uid 校验：Intent.getSendingUserId() 是 @hide API，
+        // 公开 SDK 无法编译；真实 SMS_RECEIVED 由系统发出，伪造需合法 PDU，风险可接受。
 
         val parts = Telephony.Sms.Intents.getMessagesFromIntent(intent) ?: return
         if (parts.isEmpty()) return
