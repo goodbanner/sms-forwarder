@@ -3,6 +3,9 @@
 
     <!-- 收短信（危险权限，运行时/root 授予） -->
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <!-- 从 content://sms 读取刚落库的短信正文（MIUI/HyperOS 上 pdus 是 Supplier，
+         getMessagesFromIntent 强转会抛 ClassCastException，只能改为查库） -->
+    <uses-permission android:name="android.permission.READ_SMS" />
     <!-- 转发到 webhook -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />

@@ -13,8 +13,9 @@ if [ -n "$APK" ]; then
   pm install -r -g "$APK" 2>/dev/null || pm install -r "$APK"
 fi
 
-echo ">> 授予 RECEIVE_SMS"
+echo ">> 授予 RECEIVE_SMS / READ_SMS"
 pm grant "$PKG" android.permission.RECEIVE_SMS
+pm grant "$PKG" android.permission.READ_SMS
 
 echo ">> 加入 Doze 白名单"
 dumpsys deviceidle whitelist +"$PKG"
