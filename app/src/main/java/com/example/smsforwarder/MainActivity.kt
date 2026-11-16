@@ -99,6 +99,13 @@ class MainActivity : Activity() {
         btnRow.addView(permBtn, lp(weight = 1f))
         root.addView(btnRow)
 
+        val btnRow2 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val aliveBtn = Button(this).apply { text = "开启常驻（开机自启）" }
+        val stopBtn = Button(this).apply { text = "关闭常驻" }
+        btnRow2.addView(aliveBtn, lp(weight = 1f))
+        btnRow2.addView(stopBtn, lp(weight = 1f))
+        root.addView(btnRow2)
+
         val tip = TextView(this).apply {
             text = "保存后无需重启。若系统杀后台，请把本应用加入电池优化白名单（root 脚本已自动处理）。"
             textSize = 12f
@@ -132,8 +139,25 @@ class MainActivity : Activity() {
 
         permBtn.setOnClickListener { ensurePermission() }
 
+        aliveBtn.setOnClickListener {
+            requestNotificationPermissionIfNeeded()
+            KeepAliveService.start(this)
+            requestIgnoreBatteryOptimization()
+            Toast.makeText(this, "常驻服务已启动，开机后会自动拉起", Toast.LENGTH_SHORT).show()
+        }
+
+        stopBtn.setOnClickListener {
+            stopService(android.content.Intent(this, KeepAliveService::class.java))
+            Toast.makeText(this, "已关闭常驻服务", Toast.LENGTH_SHORT).show()
+        }
+
         setContentView(ScrollView(this).apply { addView(root) })
         ensurePermission()
+
+        // 已授予短信权限时，确保常驻服务在跑（用户手动打开 App 也算一次"启动"）
+        if (checkSelfPermission(Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED) {
+            KeepAliveService.start(this)
+        }
     }
 
     private fun lp(weight: Float = 0f): LinearLayout.LayoutParams =
@@ -153,9 +177,45 @@ class MainActivity : Activity() {
     }
 
     private fun ensurePermission() {
-        if (checkSelfPermission(Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED) return
-        requestPermissions(arrayOf(Manifest.permission.RECEIVE_SMS), REQ_SMS)
+        val need = mutableListOf<String>()
+        if (checkSelfPermission(Manifest.permission.RECEIVE_SMS) != PackageManager.PERMISSION_GRANTED) {
+            need += Manifest.permission.RECEIVE_SMS
+        }
+        if (checkSelfPermission(Manifest.permission.READ_SMS) != PackageManager.PERMISSION_GRANTED) {
+            need += Manifest.permission.READ_SMS
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            need += Manifest.permission.POST_NOTIFICATIONS
+        }
+        if (need.isNotEmpty()) requestPermissions(need.toTypedArray(), REQ_SMS)
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQ_NOTIF)
+        }
+    }
+
+    /** 请求忽略电池优化，减少系统冻结导致常驻服务被杀 */
+    private fun requestIgnoreBatteryOptimization() {
+        try {
+            val pm = getSystemService(android.os.PowerManager::class.java)
+            if (pm != null && !pm.isIgnoringBatteryOptimizations(packageName)) {
+                val i = android.content.Intent(
+                    android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+                ).setData(android.net.Uri.parse("package:$packageName"))
+                startActivity(i)
+            }
+        } catch (t: Throwable) {
+            // 部分 ROM 不支持该设置页，忽略即可
+        }
     }
 }
+
+private const val REQ_NOTIF = 1002
 
 private const val REQ_SMS = 1001
